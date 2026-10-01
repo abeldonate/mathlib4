@@ -17,7 +17,9 @@ simplex category, for `n ≤ m` are initial.
 
 public section
 
-open Simplicial CategoryTheory
+open CategoryTheory
+
+open scoped Simplicial
 
 namespace SimplexCategory.Truncated
 
@@ -152,5 +154,36 @@ lemma epi_iff {d : ℕ} {a b : Truncated d} {f : a ⟶ b} : Epi f ↔ Epi f.hom 
   · intro hf
     exact (inclusion d).epi_of_epi_map hf
 
+
+/-- A morphism in `Truncated d` is a monomorphism if and only if it is a monomorphism in
+`SimplexCategory`. -/
+lemma mono_iff {d : ℕ} {a b : Truncated d} {f : a ⟶ b} : Mono f ↔ Mono f.hom := by
+  constructor
+  · intro hf
+    rw [SimplexCategory.mono_iff_injective]
+    intro x y hxy
+    let z : Truncated d := ⟨⦋0⦌, by simp⟩
+    have h : ObjectProperty.homMk (X := z) (Y := a) (SimplexCategory.const ⦋0⦌ a.obj x) ≫ f =
+        ObjectProperty.homMk (X := z) (Y := a) (SimplexCategory.const ⦋0⦌ a.obj y) ≫ f := by
+      apply Hom.ext
+      exact OrderHom.ext _ _ (funext fun i ↦ hxy)
+    exact congrArg (fun g ↦ g.hom.toOrderHom 0) ((cancel_mono f).1 h)
+  · intro hf
+    exact (inclusion d).mono_of_mono_map hf
+
+/-- A morphism in `Truncated d` is an epimorphism if and only if it is an epimorphism in
+`SimplexCategory`. -/
+lemma epi_iff {d : ℕ} {a b : Truncated d} {f : a ⟶ b} : Epi f ↔ Epi f.hom := by
+  constructor
+  · intro hf
+    refine SimplexCategory.epi_iff_surjective.2 fun j ↦ not_forall_not.1 fun hj ↦ ?_
+    have hb : 1 ≤ b.obj.len := by have := hj 0; grind
+    let g (t : ℕ) : b ⟶ ⟨⦋1⦌, hb.trans b.property⟩ :=
+      ObjectProperty.homMk <| Hom.mk ⟨fun x ↦ if t ≤ x then 1 else 0, fun x y h ↦ by grind⟩
+    have hg (t x) : (g t).hom.toOrderHom x = if t ≤ x.val then 1 else 0 := rfl
+    have h := (cancel_epi f (g := g (j + 1)) (h := g j)).1 (by ext x : 4; simp [hg]; grind [hj x])
+    simpa [hg] using congrArg (fun φ ↦ φ.hom.toOrderHom j) h
+  · intro hf
+    exact (inclusion d).epi_of_epi_map hf
 
 end SimplexCategory.Truncated
