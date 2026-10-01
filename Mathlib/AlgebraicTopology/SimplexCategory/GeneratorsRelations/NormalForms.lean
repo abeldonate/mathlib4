@@ -338,6 +338,27 @@ lemma mem_isAdmissible_iff (hL : IsAdmissible m L) (j : ℕ) :
 
 end MemIsAdmissible
 
+/-- Normal forms for `P_σ` morphisms are unique: an admissible list is determined by
+the image under `toSimplexCategory` of the corresponding `standardσ`. -/
+theorem eq_of_toSimplexCategory_map_standardσ_eq {m₁ m₂ : ℕ} {L₁ L₂ : List ℕ}
+    (hL₁ : IsAdmissible m₂ L₁) (hL₂ : IsAdmissible m₂ L₂)
+    (h₁ : m₂ + L₁.length = m₁) (h₂ : m₂ + L₂.length = m₁)
+    (h : toSimplexCategory.map (standardσ L₁ h₁) = toSimplexCategory.map (standardσ L₂ h₂)) :
+    L₁ = L₂ := by
+  have heval (j : ℕ) (hj : j < m₁ + 1) : simplicialEvalσ L₁ j = simplicialEvalσ L₂ j := by
+    rw [← simplicialEvalσ_of_isAdmissible L₁ m₁ m₂ hL₁ h₁ j hj,
+      ← simplicialEvalσ_of_isAdmissible L₂ m₁ m₂ hL₂ h₂ j hj, h]
+  refine hL₁.sortedLT.eq_of_mem_iff hL₂.sortedLT fun j ↦ ?_
+  rw [mem_isAdmissible_iff L₁ hL₁, mem_isAdmissible_iff L₂ hL₂]
+  grind
+
+/-- Normal forms for `P_σ` morphisms are unique. -/
+theorem eq_of_standardσ_eq {m₁ m₂ : ℕ} {L₁ L₂ : List ℕ}
+    (hL₁ : IsAdmissible m₂ L₁) (hL₂ : IsAdmissible m₂ L₂)
+    (h₁ : m₂ + L₁.length = m₁) (h₂ : m₂ + L₂.length = m₁)
+    (h : standardσ L₁ h₁ = standardσ L₂ h₂) : L₁ = L₂ :=
+  eq_of_toSimplexCategory_map_standardσ_eq hL₁ hL₂ h₁ h₂ (congrArg _ h)
+
 end NormalFormsP_σ
 
 end SimplexCategoryGenRel

@@ -18,14 +18,57 @@ This statement is deduced from a similar statement for
 the category `SimplexCategory.Truncated d`, which is itself obtained
 by showing that such a `W` contains all epimorphisms
 (`Truncated.mem_of_epi`) and all monomorphisms (`Truncated.mem_of_mono`).
+These follow from the induction principles `SimplexCategory.epi_induction`
+and `SimplexCategory.mono_induction`: every epimorphism is a composition of
+degeneracies, and every monomorphism is a composition of faces.
 
 -/
 
 public section
 
-open CategoryTheory Limits
+open CategoryTheory Limits Simplicial
 
 namespace SimplexCategory
+
+/-- An induction principle for monomorphisms in `SimplexCategory`: a property of morphisms
+which holds for identities and is stable under postcomposition with faces holds for
+all monomorphisms. -/
+@[elab_as_elim]
+lemma mono_induction {motive : ∀ {x y : SimplexCategory}, (x ⟶ y) → Prop}
+    (id : ∀ x, motive (𝟙 x))
+    (comp_δ : ∀ {x : SimplexCategory} {n : ℕ} (f : x ⟶ ⦋n⦌) (i : Fin (n + 2)),
+      motive f → motive (f ≫ δ i))
+    {x y : SimplexCategory} (f : x ⟶ y) [Mono f] : motive f := by
+  obtain ⟨a⟩ := x
+  obtain ⟨b⟩ := y
+  obtain ⟨c, rfl⟩ := Nat.exists_eq_add_of_le (len_le_of_mono f)
+  induction c with
+  | zero => exact eq_id_of_mono f ▸ id _
+  | succ c hc =>
+    obtain ⟨i, g, hg⟩ := eq_comp_δ_of_not_surjective f fun h ↦ by
+      have := epi_iff_surjective.2 h; have := len_le_of_epi f; dsimp at this; lia
+    have := mono_of_mono_fac hg.symm
+    exact hg ▸ comp_δ g i (hc g)
+
+/-- An induction principle for epimorphisms in `SimplexCategory`: a property of morphisms
+which holds for identities and is stable under precomposition with degeneracies holds for
+all epimorphisms. -/
+@[elab_as_elim]
+lemma epi_induction {motive : ∀ {x y : SimplexCategory}, (x ⟶ y) → Prop}
+    (id : ∀ x, motive (𝟙 x))
+    (σ_comp : ∀ {n : ℕ} {y : SimplexCategory} (i : Fin (n + 1)) (f : ⦋n⦌ ⟶ y),
+      motive f → motive (σ i ≫ f))
+    {x y : SimplexCategory} (f : x ⟶ y) [Epi f] : motive f := by
+  obtain ⟨a⟩ := x
+  obtain ⟨b⟩ := y
+  obtain ⟨c, rfl⟩ := Nat.exists_eq_add_of_le (len_le_of_epi f)
+  induction c with
+  | zero => exact eq_id_of_epi f ▸ id _
+  | succ c hc =>
+    obtain ⟨i, g, hg⟩ := eq_σ_comp_of_not_injective f fun h ↦ by
+      have := mono_iff_injective.2 h; have := len_le_of_mono f; dsimp at this; lia
+    have := epi_of_epi_fac hg.symm
+    exact hg ▸ σ_comp i g (hc g)
 
 namespace Truncated
 
@@ -36,36 +79,20 @@ contains all epimorphisms. -/
 lemma mem_of_epi (σ_mem : ∀ (n : ℕ) (hn : n < d) (i : Fin (n + 1)),
       W (Truncated.σ d i (by dsimp; lia) (by dsimp; lia)))
     {a b : Truncated d} (f : a ⟶ b) [hf : Epi f] : W f := by
-  obtain ⟨⟨a⟩, ha⟩ := a
-  obtain ⟨⟨b⟩, hb⟩ := b
   rw [epi_iff] at hf
-  obtain ⟨c, rfl⟩ := Nat.exists_eq_add_of_le (len_le_of_epi f.hom)
-  induction c with
-  | zero => exact ObjectProperty.hom_ext _ (eq_id_of_epi f.hom) ▸ W.id_mem _
-  | succ c hc =>
-    obtain ⟨i, g, hg⟩ := eq_σ_comp_of_not_injective f.hom fun h ↦ by
-      have := mono_iff_injective.2 h; have := len_le_of_mono f.hom; dsimp at this; lia
-    have hc' : b + c < d := by dsimp at ha; lia
-    rw [show f = Hom.tr (SimplexCategory.σ i) ≫ Hom.tr g hc'.le hb from InducedCategory.hom_ext hg]
-    exact W.comp_mem _ _ (σ_mem _ hc' _) (@hc hc'.le _ (epi_of_epi_fac hg.symm))
+  refine epi_induction (motive := fun g ↦ ∀ hx hy, W (Hom.tr g hx hy))
+    (fun _ _ _ ↦ W.id_mem _) (fun i g h hx hy ↦ ?_) f.hom a.2 b.2
+  exact W.comp_mem _ _ (σ_mem _ (by dsimp at hx; lia) i) (h (by dsimp at hx ⊢; lia) hy)
 
 /-- A multiplicative property of morphisms in `Truncated d` which contains the faces
 contains all monomorphisms. -/
 lemma mem_of_mono (δ_mem : ∀ (n : ℕ) (hn : n < d) (i : Fin (n + 2)),
       W (Truncated.δ d i (by dsimp; lia) (by dsimp; lia)))
     {a b : Truncated d} (f : a ⟶ b) [hf : Mono f] : W f := by
-  obtain ⟨⟨a⟩, ha⟩ := a
-  obtain ⟨⟨b⟩, hb⟩ := b
   rw [mono_iff] at hf
-  obtain ⟨c, rfl⟩ := Nat.exists_eq_add_of_le (len_le_of_mono f.hom)
-  induction c with
-  | zero => exact ObjectProperty.hom_ext _ (eq_id_of_mono f.hom) ▸ W.id_mem _
-  | succ c hc =>
-    obtain ⟨i, g, hg⟩ := eq_comp_δ_of_not_surjective f.hom fun h ↦ by
-      have := epi_iff_surjective.2 h; have := len_le_of_epi f.hom; dsimp at this; lia
-    have hc' : a + c < d := by dsimp at hb; lia
-    rw [show f = Hom.tr g ha hc'.le ≫ Hom.tr (SimplexCategory.δ i) from InducedCategory.hom_ext hg]
-    exact W.comp_mem _ _ (@hc hc'.le _ (mono_of_mono_fac hg.symm)) (δ_mem _ hc' _)
+  refine mono_induction (motive := fun g ↦ ∀ hx hy, W (Hom.tr g hx hy))
+    (fun _ _ _ ↦ W.id_mem _) (fun g i h hx hy ↦ ?_) f.hom a.2 b.2
+  exact W.comp_mem _ _ (h hx (by dsimp at hy ⊢; lia)) (δ_mem _ (by dsimp at hy; lia) i)
 
 lemma morphismProperty_eq_top
     (δ_mem : ∀ (n : ℕ) (hn : n < d) (i : Fin (n + 2)),
